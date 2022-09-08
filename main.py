@@ -8,34 +8,30 @@ import requests
 import zipfile
 from pathlib import Path
 import json
+import uuid
 
 #метод загрузки осциллограммы на сервер конвертора
 def send_osc(url , my_token, f_path):
-   #headers = {'accept': 'text/plain', 'Authorization': my_token, 'Content-Type': 'multipart/form-data;boundary=---boundary'}
-   #headers = {'accept': 'text/plain', 'Authorization': my_token,'Content-Type': 'multipart/form-data'}
    headers = {'accept': 'text/plain', 'Authorization': my_token}
    with open(f_path, 'rb') as fp:
-      #payload = MultipartEncoder({f_path: fp})
-      response = requests.post(url=url, files={'content':fp}, headers=headers)
+      response = requests.post(url=url, files={'files': fp}, data={'externalIds': [str(uuid.uuid4())]}, headers=headers)
    if response.status_code == 200:
-      #print(response.content.decode('utf-8').replace('"', ''))
-      return response.content.decode('utf-8').replace('"', '')
+      return response.content.decode('utf-8').replace('"', '').replace('[', '').replace(']', '')
    else:
       return ''
 
 #метод получения информации о загруженной осциллограмме
 def get_dump_file_result(url, file_id, my_token):
-   #url = 'http://172.16.22.11:5025/convertertocomtrade/get-dump-file-result'
-   headers = {'accept': 'text/plain', 'Authorization': my_token}
-   response = requests.post(url=url, headers=headers, params={'fileDumpId': file_id})
-   return response.json()#['dumpFile']['status']
+   headers = {'accept': 'text/plain', 'Authorization': my_token, 'Content-Type': 'application/json'}
+   fileId_ls = [file_id]
+   json_fileId_ls = json.dumps(fileId_ls)
+   response = requests.post(url=url, headers=headers, data=json_fileId_ls.encode('utf-8'))
+   return response.json()[0]
 
 #загрузка преобразованного файла comtrade
 def get_convering_file(url, file_id, my_token, file_name):
-   #url = 'http://172.16.22.11:5025/convertertocomtrade/get-convering-file'
    headers = {'accept': 'application/zip', 'Authorization': my_token}
    response = requests.post(url=url, headers=headers, params={'fileDumpId': file_id})
-   #print(response.headers)
    with open(file_name + '.zip', "wb") as code:
       code.write(response.content)
    z = zipfile.ZipFile(file_name + '.zip', 'r')
@@ -46,18 +42,13 @@ def all_actions_with_api(domen, token, file_name:str):
    url1 = domen +'/convertertocomtrade/add-files'
    url2 = domen +'/convertertocomtrade/get-dump-file-result'
    url3 = domen +'/convertertocomtrade/get-convering-file'
-   #http://172.16.22.11:5025
    file_name_without_ext = str(Path(file_name).with_suffix(''))
    # отправляем файл в конвертор
    dumpId = send_osc(url1, token, file_name)
-   #print(dumpId)
    if dumpId != '':
-      #n = 0
-      #print(get_dump_file_result(url2, dumpId, token))
       status = get_dump_file_result(url2, dumpId, token)['dumpFile']['status']
       while status == 'Queue':
-         #n+=1
-         time.sleep(10) #ждем 10 с до следующей попытки запросить статус
+         time.sleep(5) #ждем 5 с до следующей попытки запросить статус
          status = get_dump_file_result(url2, dumpId, token)['dumpFile']['status']
       if status not in ('ConvertSuccess', 'Queue'):
          return 'Error: Convert unsuccess: status - ' +status +' ; file_name: '+ file_name
@@ -83,7 +74,6 @@ if __name__ == '__main__':
       for file in dirs[2]:
 
          if str(Path(file).suffix).lower() in ['.aura', '.bb', '.brs', '.dfr', '.os1', '.os2', '.os3', '.osc', '.sg2']:
-            print(Path(file).suffix.lower())
             st = (dirs[0]+'\\'+file).replace('\\', '/')
             print(all_actions_with_api( domain, token, st))
 
