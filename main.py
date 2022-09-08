@@ -9,6 +9,22 @@ import zipfile
 from pathlib import Path
 import json
 import uuid
+from chardet.universaldetector import UniversalDetector
+
+#ьутод определения кодировки файла
+# def detectChar(file_path):
+#    case = {'IBM866': '866',
+#            'windows-1251': '1251',
+#            'windows-1253': '1251',
+#            }
+#    detector = UniversalDetector()
+#    with open(file_path, 'rb') as fh:
+#       for line in fh:
+#          detector.feed(line)
+#          if detector.done:
+#             break
+#       detector.close()
+#    return detector.result #case[detector.result['encoding']]
 
 #метод загрузки осциллограммы на сервер конвертора
 def send_osc(url , my_token, f_path):
@@ -59,6 +75,9 @@ def all_actions_with_api(domen, token, file_name:str):
 
 if __name__ == '__main__':
 
+   ext_charset_map = {'.aura': '1251', '.os1': '866', '.os2': '866',
+                      '.os3': '866', '.bb': '1251'}
+
    with open('settings.json') as f:
       settings_file = json.load(f)
 
@@ -72,29 +91,25 @@ if __name__ == '__main__':
    dir_path = current_dir
    for dirs in list(os.walk(dir_path)):
       for file in dirs[2]:
-
-         if str(Path(file).suffix).lower() in ['.aura', '.bb', '.brs', '.dfr', '.os1', '.os2', '.os3', '.osc', '.sg2']:
+         suf = str(Path(file).suffix).lower()
+         if suf in ['.aura', '.bb', '.brs', '.dfr', '.os1', '.os2', '.os3', '.osc', '.sg2']:
             st = (dirs[0]+'\\'+file).replace('\\', '/')
             print(all_actions_with_api( domain, token, st))
-
-   # валидация
-   for dirs in list(os.walk(dir_path)):
-      for file in dirs[2]:
-         st = (dirs[0]+'\\'+file).replace('\\', '/')
-         if st[-3:] in ('cfg', 'CFG'):
-            f = open(st, 'r')
-
-
-
-            osc = oscillogram(f)
-            validator.osc = osc
-
-            #добавляем файл dat только в том случае если он существует
-            if validator.dat_file_is_exist():
-               osc.set_data_file()
-            validator.full_oscillogram_validation(report_f)
-
-            osc.close_dat_file()
-            f.close()
+            st2 = str(file).replace(Path(file).suffix, '.cfg').lower()
+            # валидация
+            for dirs2 in list(os.walk(dir_path)):
+               for file2 in dirs2[2]:
+                  if str(file2).lower() == st2.replace(',', '.'):
+                     st3 = (dirs2[0] + '\\' + file2).replace('\\', '/')
+                     f = open(st3, 'r', encoding=ext_charset_map[suf])
+                     osc = oscillogram(f)
+                     validator.osc = osc
+                     #добавляем файл dat только в том случае если он существует
+                     if validator.dat_file_is_exist():
+                        osc.set_data_file()
+                     report_f.write('Расширение исходного файла: ' + suf + ';\n')
+                     validator.full_oscillogram_validation(report_f)
+                     osc.close_dat_file()
+                     f.close()
    report_f.close()
 
