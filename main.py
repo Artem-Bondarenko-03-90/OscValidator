@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from datetime import datetime
 
 from oscill import oscillogram
 from validator import validator
@@ -16,52 +17,31 @@ import uuid
 
 def send_osc(url , my_token, file_name_ls):
    headers = {'accept': 'text/plain', 'Authorization': my_token}
-   content= []
    files_ls = {}
    multiple_files = []
-   #size=0
    for file_name in file_name_ls:
       fp = open(file_name, 'rb')
-      #fp.seek(0, os.SEEK_END)
-      #size += int(fp.tell())
-      #fp.seek(0)
-
       files_ls[str(uuid.uuid4())] = fp
       multiple_files.append(('files', (fp)))
-      #size += int(fp.tell())
-
-
-
-
-      # if size >= 10 * 1024 * 1024:
-      #    response = requests.post(url=url, files=multiple_files, data={'externalIds': list(files_ls.keys())}, headers=headers)
-      #    size=0
-      #    files_ls ={}
-      #    multiple_files = []
-      #    for j in response.json():
-      #       content.append(j)
 
    response = requests.post(url=url, files=multiple_files, data={'externalIds': list(files_ls.keys())}, headers=headers)
-   # for j in response.json():
-   #    content.append(j)
 
    #закроем все открытые файлы
    for f in files_ls.values():
       f.close()
    if response.status_code == 200:
-      #return str(content).replace('\'', '"').encode('utf-8')
       return response.content
    else:
       return b''
 
 #метод получения информации о загруженной осциллограмме
-def get_dump_file_result(url, files_ls, my_token):
+def get_conversion_status(url, files_ls, my_token):
    headers = {'accept': 'text/plain', 'Authorization': my_token, 'Content-Type': 'application/json'}
    response = requests.post(url=url, headers=headers, data=files_ls)
    return response.json()
 
 #загрузка преобразованного файла comtrade
-def get_convering_file(url, file_id, my_token, file_name, src_dir):
+def get_converted_file(url, file_id, my_token, file_name, src_dir):
    headers = {'accept': 'application/zip', 'Authorization': my_token}
    response = requests.post(url=url, headers=headers, params={'fileDumpId': file_id})
    with open(file_name + '.zip', "wb") as code:
@@ -71,9 +51,11 @@ def get_convering_file(url, file_id, my_token, file_name, src_dir):
    return response.status_code
 
 def all_actions_with_api(domen, token, file_name_ls, current_dir):
+   time_st=datetime.now()
+
    url1 = domen +'/convertertocomtrade/add-files'
-   url2 = domen +'/convertertocomtrade/get-dump-file-result'
-   url3 = domen +'/convertertocomtrade/get-convering-file'
+   url2 = domen +'/convertertocomtrade/get-conversion-status'
+   url3 = domen +'/convertertocomtrade/get-converted-file'
 
    success_dumps = []
 
@@ -83,8 +65,9 @@ def all_actions_with_api(domen, token, file_name_ls, current_dir):
    if sended_files_ls != b'':
       status = 'Queue'
       i=0
+
       while status == 'Queue':
-         dumps = get_dump_file_result(url2, sended_files_ls, token)
+         dumps = get_conversion_status(url2, sended_files_ls, token)
          for dump in dumps:
             if dump['dumpFile']['status'] == 'Queue':
                time.sleep(5)  # ждем 5 с до следующей попытки запросить статус
@@ -94,13 +77,20 @@ def all_actions_with_api(domen, token, file_name_ls, current_dir):
                break
             else:
                status = 'NoQueue'
-      for dump in get_dump_file_result(url2, sended_files_ls, token):
+      count_dumps_all=0
+      count_dumps_success = 0
+      for dump in get_conversion_status(url2, sended_files_ls, token):
+         count_dumps_all+=1
          if dump['dumpFile']['status'] == 'ConvertSuccess':
+            count_dumps_success+=1
             print("Download file: "+dump['dumpFile']['fileNameWithoutExtension']+dump['dumpFile']['extension'])
-            get_convering_file(url3, dump['dumpFile']['id'], token, current_dir+str(Path(dump['dumpFile']['fileNameWithoutExtension']).with_suffix('')), current_dir)
+            get_converted_file(url3, dump['dumpFile']['id'], token, current_dir+str(Path(dump['dumpFile']['fileNameWithoutExtension']).with_suffix('')), current_dir)
             success_dumps.append(dump)
          else:
             print("Convert unsuccess: Status - "+ dump['dumpFile']['status'])
+      print('Процент успешной конвертации: '+ str((count_dumps_success/count_dumps_all)*100)+'%')
+      time_end = datetime.now()
+      print('Общее время конвертации: '+str(time_end-time_st))
       return success_dumps
    else:
       print('Error: Don`t get dumpFile_list')

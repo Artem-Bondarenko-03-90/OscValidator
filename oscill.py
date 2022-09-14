@@ -145,7 +145,7 @@ class oscillogram(object):
 
     # получить размер файла в строках
     def get_file_size_str(self, file):
-        line_count = -1
+        line_count = 0
         for line in file:
             line_count += 1
         return line_count
