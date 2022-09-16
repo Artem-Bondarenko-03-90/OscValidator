@@ -77,6 +77,7 @@ def all_actions_with_api(domen, token, file_name_ls, current_dir):
                break
             else:
                status = 'NoQueue'
+      time_wisout_download = datetime.now()
       count_dumps_all=0
       count_dumps_success = 0
       for dump in get_conversion_status(url2, sended_files_ls, token):
@@ -91,6 +92,7 @@ def all_actions_with_api(domen, token, file_name_ls, current_dir):
       print('Процент успешной конвертации: '+ str((count_dumps_success/count_dumps_all)*100)+'%')
       time_end = datetime.now()
       print('Общее время конвертации: '+str(time_end-time_st))
+      print('Время конвертации без учёта загрузки comtrade: ' + str(time_wisout_download - time_st))
       return success_dumps
    else:
       print('Error: Don`t get dumpFile_list')
