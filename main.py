@@ -81,14 +81,18 @@ def all_actions_with_api(domen, token, file_name_ls, current_dir):
       count_dumps_all=0
       count_dumps_success = 0
       for dump in get_conversion_status(url2, sended_files_ls, token):
-         count_dumps_all+=1
+         if str(dump['dumpFile']['extension']).lower() in ('.aura', '.os1', '.os2', '.os3', '.bb', '.do', '.to'):
+            count_dumps_all+=1
          if dump['dumpFile']['status'] == 'ConvertSuccess':
-            count_dumps_success+=1
-            print("Download file: "+dump['dumpFile']['fileNameWithoutExtension']+dump['dumpFile']['extension'])
-            get_converted_file(url3, dump['dumpFile']['id'], token, current_dir+str(Path(dump['dumpFile']['fileNameWithoutExtension']).with_suffix('')), current_dir)
-            success_dumps.append(dump)
+            if str(dump['dumpFile']['extension']).lower() in ('.aura', '.os1', '.os2', '.os3', '.bb', '.do', '.to'):
+               count_dumps_success+=1
+               print("Download file: "+dump['dumpFile']['fileNameWithoutExtension']+dump['dumpFile']['extension'])
+               get_converted_file(url3, dump['dumpFile']['id'], token, current_dir+str(Path(dump['dumpFile']['fileNameWithoutExtension']).with_suffix('')), current_dir)
+               success_dumps.append(dump)
          else:
             print("Convert unsuccess: Status - "+ dump['dumpFile']['status'])
+      print('Количество отправленных на конвертацию файлов осциллограмм: '+ str(count_dumps_all))
+      print('Количество успешно сконвертированных файлов осциллограмм: ' + str(count_dumps_success))
       print('Процент успешной конвертации: '+ str((count_dumps_success/count_dumps_all)*100)+'%')
       time_end = datetime.now()
       print('Общее время конвертации: '+str(time_end-time_st))
